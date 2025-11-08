@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+# This is a script to lock the laptop with i3lock
+
+convert ~/.config/awesome/wallpapers/wp3770437-red-dead-redemption-2-4k-wallpapers.png -blur 0x5 /tmp/screenshotblur.png
+i3lock -n -f -i /tmp/screenshotblur.png

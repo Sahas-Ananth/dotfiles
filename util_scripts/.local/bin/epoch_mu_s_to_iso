@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+print_help() {
+  cat <<'EOF'
+Convert an epoch timestamp in microseconds to UTC ISO-8601 (with optional fractional offset).
+
+Usage:
+  epoch_to_iso.sh [-h|--help] <epoch_microseconds> [offset]
+
+Arguments:
+  <epoch_microseconds>  Required. Integer microsecond Unix epoch (e.g. 1761190729000000).
+  [offset]              Optional time shift. Pattern: [+-]?[0-9]+([.][0-9]+)?[smh]?
+                        Default unit: seconds (s) if omitted.
+                        Units:
+                          s  seconds
+                          m  minutes
+                          h  hours
+                        Examples:
+                          0            (no shift)
+                          +300         (plus 300 seconds)
+                          -300         (minus 300 seconds)
+                          +5m          (plus 5 minutes)
+                          -2h          (minus 2 hours)
+                          +1.5s        (plus 1.5 seconds)
+                          -0.25m       (minus 15 seconds)
+                          +2.000001s   (plus 2 seconds + 1 microsecond)
+
+Output:
+  UTC ISO-8601 with microseconds: YYYY-MM-DDTHH:MM:SS.ffffffZ
+
+Notes:
+  - Offset is rounded to the nearest microsecond.
+  - Negative epochs (dates before 1970) are supported if your 'date' implementation supports them.
+  - Requires GNU date or BSD/macOS date.
+
+Examples:
+  epoch_to_iso.sh 1761190729000000
+  epoch_to_iso.sh 1761190729000000 +300
+  epoch_to_iso.sh 1761190729000000 -0.25m
+  epoch_to_iso.sh 1761190729000000 +2.000001s
+
+EOF
+}
+
+to_iso_micro() {
+  # Internal: to_iso_micro <epoch_microseconds> [offset]
+  local us=$1
+  local raw_offset=${2:-0}
+
+  if [[ -z $us || ! $us =~ ^[0-9]+$ ]]; then
+    echo "Error: first argument must be epoch microseconds (integer)" >&2
+    return 1
+  fi
+
+  local re='^([+-]?)([0-9]+)(\.[0-9]+)?([smh]?)$'
+  if [[ ! $raw_offset =~ $re ]]; then
+    echo "Error: invalid offset format '$raw_offset'" >&2
+    return 1
+  fi
+
+  local sign="${BASH_REMATCH[1]}"
+  local int_part="${BASH_REMATCH[2]}"
+  local frac_part="${BASH_REMATCH[3]}"     # includes leading dot if present
+  local unit="${BASH_REMATCH[4]}"
+
+  [[ -z $sign ]] && sign="+"
+  [[ -z $unit ]] && unit="s"
+  local magnitude="${int_part}${frac_part}"
+
+  local factor_seconds
+  case "$unit" in
+    s) factor_seconds=1 ;;
+    m) factor_seconds=60 ;;
+    h) factor_seconds=3600 ;;
+    *) echo "Error: unsupported unit '$unit'" >&2; return 1 ;;
+  esac
+
+  local offset_us
+  offset_us=$(awk -v mag="$magnitude" -v f="$factor_seconds" 'BEGIN {
+      val = mag * f * 1000000;
+      if (val >= 0) printf "%.0f", val + 0.5; else printf "%.0f", val - 0.5;
+  }') || return 1
+  [[ $sign == "-" ]] && offset_us=$(( -offset_us ))
+
+  local total_us=$(( us + offset_us ))
+  local sec=$(( total_us / 1000000 ))
+  local frac=$(( total_us % 1000000 ))
+  if (( frac < 0 )); then
+    frac=$(( frac + 1000000 ))
+    sec=$(( sec - 1 ))
+  fi
+
+  local base_iso
+  if date --version >/dev/null 2>&1; then
+    TZ=UTC base_iso=$(date -u -d "@$sec" +"%Y-%m-%dT%H:%M:%S") || return 1
+  else
+    TZ=UTC base_iso=$(date -u -r "$sec" +"%Y-%m-%dT%H:%M:%S") || return 1
+  fi
+
+  printf "%s.%06dZ\n" "$base_iso" "$frac"
+}
+
+# Main CLI handling
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  if (( $# == 0 )); then
+    echo "Error: missing required epoch_microseconds argument" >&2
+    print_help >&2
+    exit 1
+  fi
+
+  case "$1" in
+    -h|--help)
+      print_help
+      exit 0
+      ;;
+  esac
+
+  if (( $# > 2 )); then
+    echo "Error: too many arguments ($# provided, max 2)" >&2
+    print_help >&2
+    exit 1
+  fi
+
+  if ! result=$(to_iso_micro "$@"); then
+    # Error message already printed by to_iso_micro; append help.
+    print_help >&2
+    exit 1
+  fi
+  printf "%s\n" "$result"
+fi
