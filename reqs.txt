@@ -1,0 +1,28 @@
+# bash custom
+bat  # Cargo
+lazygit
+fzf
+fd # Cargo
+zoxide # Cargo
+joshuto # Cargo
+
+# Neovim
+ripgrep # Cargo
+tree-sitter-cli # Cargo
+
+# Misc
+tree
+cargo-binstall # Use this to install the cargo stuff above
+pipx # Installed with pip
+kanata # Cargo
+
+# awesome
+arandr
+autorandr
+picom (optional)
+playerctl
+pavucontrol
+acpi
+ddcutil / ddcui
+flameshot
+xfce4-clipman
