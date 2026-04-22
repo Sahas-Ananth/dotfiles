@@ -144,9 +144,9 @@ function _M.get()
     end),
 
     -- Menubar
-    awful.key({ modkey }, "p", function()
-      menubar.show()
-    end, { description = "show the menubar", group = "launcher" }),
+    -- awful.key({ modkey }, "p", function()
+    --   menubar.show()
+    -- end, { description = "show the menubar", group = "launcher" }),
 
     -- Volume
     awful.key({}, "XF86AudioRaiseVolume", function()
