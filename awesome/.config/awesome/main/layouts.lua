@@ -13,10 +13,10 @@ function _M.get()
     awful.layout.suit.max, -- 3
     awful.layout.suit.max.fullscreen, -- 4
     awful.layout.suit.tile.left, -- 5
-    awful.layout.suit.fair, -- 6
+    -- awful.layout.suit.fair, -- 6
 
-    awful.layout.suit.tile.bottom, -- 4
-    awful.layout.suit.tile.top, -- 5
+    -- awful.layout.suit.tile.bottom, -- 4
+    -- awful.layout.suit.tile.top, -- 5
 
     -- awful.layout.suit.fair.horizontal, -- 9
 
