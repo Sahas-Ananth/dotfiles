@@ -22,8 +22,8 @@ run picom -b --config $HOME/.config/picom/picom.conf
 
 # Turn screen saver on at 600s, suspend at 900s
 xset +dpms
-xset dpms 600 900 900
-xset s 600 600
+xset dpms 1200 1500 1500
+xset s 1200 1200
 # Turn on lockscreen
 # run "xss-lock -l -- lockscreen"
 
