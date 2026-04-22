@@ -25,11 +25,10 @@ function _M.get(clientkeys, clientbuttons)
         buttons = clientbuttons,
         screen = awful.screen.preferred,
         placement = awful.placement.no_overlap + awful.placement.no_offscreen,
+        floating = false,
+        titlebars_enabled = false,
       },
     },
-
-    -- Tile Brave-browser
-    { rule = { instance = "brave-browser" }, properties = { floating = false, maximized = false } },
 
     -- Floating clients.
     {
@@ -67,22 +66,43 @@ function _M.get(clientkeys, clientbuttons)
       properties = {
         floating = true,
         titlebars_enabled = true,
+        placement = awful.placement.no_overlap + awful.placement.no_offscreen + awful.placement.centered,
       },
     },
 
-    -- Add titlebars to normal clients and dialogs
+    -- Open Slack in workspace 3
     {
-      rule_any = {
-        type = { "normal", "dialog" },
-      },
+      rule = { class = "Slack" },
+      properties = { tag = awful.tag.find_by_name(awful.screen.focused(), "Slack").name },
+    },
+
+    -- Zoom Rules:
+    -- If you are zoom, be maximized, centered, and on the "Zoom" tag.
+    {
+      rule = { class = "^zoom$" },
       properties = {
-        titlebars_enabled = false,
+        floating = false,
+        maximized = true,
+        -- maximized_vertical = true,
+        -- maximized_horizontal = true,
+        urgent = true,
+        -- placement = awful.placement.no_overlap + awful.placement.no_offscreen + awful.placement.centered,
+        tag = awful.tag.find_by_name(awful.screen.focused(), "Zoom").name,
       },
     },
 
-    -- Set Firefox to always map on the tag named "2" on screen 1.
-    -- { rule = { class = "Firefox" },
-    --   properties = { screen = 1, tag = "2" } },
+    -- Open Mail in workspace 5 - Outlook PWA has this WM_CLASS(STRING) = "crx_faolnafnngnfdaknnbpnkhgohbobgegn", "Brave-browser"
+    {
+      rule = { instance = "crx_faolnafnngnfdaknnbpnkhgohbobgegn" },
+      properties = {
+        tag = awful.tag.find_by_name(awful.screen.focused(), "Mail").name,
+        titlebars_enabled = false,
+        floating = false,
+      },
+    },
+
+    -- Tile Brave-browser
+    { rule = { class = "brave-browser" }, properties = { floating = false, maximized = false } },
   }
 
   return rules
