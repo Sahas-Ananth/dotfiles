@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ORG_LIST=("torc-core" "torc-compute-foundation" "torc-robotics" "torc-codethink" "torc-forks")
+
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/gh-repos-to-search"
+REPO_FILE="$CACHE_DIR/repos.txt"
+
+# Ensure GH CLI is installed
+if ! command -v gh &>/dev/null; then
+  echo "Installing GitHub CLI..."
+  sudo apt update && sudo apt install -y gh
+fi
+
+# Ensure you're authenticated
+if ! gh auth status &>/dev/null; then
+  echo "Authenticating GitHub CLI..."
+  gh auth login
+fi
+
+# Remove the old cache dir
+echo "Removing old Cache dir: $CACHE_DIR"
+rm -fr $CACHE_DIR
+
+echo "Making Cache dir: $CACHE_DIR"
+mkdir -p "$CACHE_DIR"
+
+for org in "${ORG_LIST[@]}"; do
+    echo "=== $org ==="
+    gh repo list "$org" --limit 100000 --json nameWithOwner --jq '.[].nameWithOwner' >> $REPO_FILE
+done
+echo "Total: $(cat $REPO_FILE | wc -l) repos"
+echo "$REPO_FILE"

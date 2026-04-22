@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/gh-repos-to-search"
+REPO_FILE="$CACHE_DIR/repos.txt"
+
+selection=$(cat $REPO_FILE | rofi -dmenu -i -matching fuzzy -sort-method fzf -sort -p "Search Repos")
+if [[ -z "$selection" ]]; then
+  exit 0
+else
+  xdg-open "https://github.com/$selection" >/dev/null 2>&1 &
+fi
