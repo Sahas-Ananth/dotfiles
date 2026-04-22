@@ -26,3 +26,6 @@ acpi
 ddcutil / ddcui
 flameshot
 xfce4-clipman
+
+# tools
+tldr # pipx
