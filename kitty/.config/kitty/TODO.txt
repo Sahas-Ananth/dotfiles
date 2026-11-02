@@ -1,0 +1,3 @@
+1. Change config to move to different terminals using say 'Ctrl+Shift+Up', 'Ctrl+Shift+Down', 'Ctrl+Shift+Left', and 'Ctrl+Shift+Right' instead of just 'Ctrl+Shift+]' for next and 'Ctrl+Shift+[' for previous. 
+2. Add a way to split the terminal vertically and horizontally and find appropriate key bindings for the same. 
+3. When creating a new 'window' or 'Ctrl+Shift+Enter', the new window should be created in the same directory as the current terminal.
