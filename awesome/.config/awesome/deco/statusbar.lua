@@ -32,7 +32,7 @@ local custom_widgets = {
       awful.util.spawn("lockscreen", false)
     end,
   },
-  vol_widget = require "widgets.volume-widget.volume" {
+  vol_widget = require "widgets.pactl-widget.volume" {
     widget_type = "icon_and_text",
     step = 1,
   },

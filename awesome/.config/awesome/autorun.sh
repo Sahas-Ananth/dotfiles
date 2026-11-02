@@ -9,9 +9,9 @@ function run {
 
 # run /usr/lib/polkit-1/polkit-agent-helper-1
 
-run "/usr/libexec/polkitd"
-run "gnome-keyring-daemon --start --components=keyring,secrets,ssh,pkcs11,gpg"
-ssh-add /home/sahasrajit/.ssh/torc_gh
+# run /usr/libexec/polkitd
+run gnome-keyring-daemon --start --components=keyring,secrets,ssh,pkcs11,gpg
+# ssh-add /home/$USER/.ssh/torc_gh
 run nm-applet
 run blueman-applet
 run ibus-daemon
@@ -34,8 +34,10 @@ run playerctld
 # Turn on Tap Action in Trackpad
 # xinput set-prop 15 348 1
 # Turn on Natural Scrolling in Trackpad
-touchpad_id=$(xinput list | grep "Touchpad" | sed -r 's/.*id=([0-9]*).*/\1/')
+touchpad_id=$(xinput list | grep "Synaptics" | sed -r 's/.*id=([0-9]*).*/\1/')
 xinput set-prop $touchpad_id $(xinput list-props $touchpad_id | grep "Natural Scrolling Enabled (" | sed -r 's/.*\((.*)\).*/\1/') 1
 # xinput set-prop 15 $(xinput list-props 15 | grep "Natural Scrolling Enabled (" | sed -r 's/.*\((.*)\).*/\1/') 1
+
+run numlockx on
 
 autorandr -c

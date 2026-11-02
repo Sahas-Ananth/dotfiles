@@ -9,12 +9,12 @@ function _M.get()
   local tags = {}
 
   local tagpairs = {
-    names = { "Work 1", "Work 2", "Slack", "Zoom", "Mail", "6", "7", "Obsidian", "Music" },
+    names = { "Work 1", "Work 2", "Slack", "Zoom", "Mail", "Work 6", "Work 7", "Obsidian", "Music" },
     layout = {
       RC.layouts[1],
       RC.layouts[1],
       RC.layouts[3],
-      RC.layouts[3],
+      RC.layouts[2],
       RC.layouts[1],
       RC.layouts[1],
       RC.layouts[1],

@@ -78,18 +78,26 @@ function _M.get(clientkeys, clientbuttons)
 
     -- Zoom Rules:
     -- If you are zoom, be maximized, centered, and on the "Zoom" tag.
-    {
-      rule = { class = "^zoom$" },
-      properties = {
-        floating = false,
-        maximized = true,
-        -- maximized_vertical = true,
-        -- maximized_horizontal = true,
-        urgent = true,
-        -- placement = awful.placement.no_overlap + awful.placement.no_offscreen + awful.placement.centered,
-        tag = awful.tag.find_by_name(awful.screen.focused(), "Zoom").name,
-      },
-    },
+    -- {
+    --   rule = { class = "^zoom$" },
+    --   properties = {
+    -- floating = false,
+    -- maximized = true,
+    -- maximized_vertical = true,
+    -- maximized_horizontal = true,
+    -- urgent = true,
+    -- placement = awful.placement.no_overlap + awful.placement.no_offscreen + awful.placement.centered,
+    -- tag = awful.tag.find_by_name(awful.screen.focused(), "Zoom").name,
+    --   },
+    -- },
+
+    -- {
+    --   rule = { name = "annotate_toolbar" },
+    --   properties = {
+    --     maximized = false,
+    --     floating = true,
+    --   },
+    -- },
 
     -- Open Mail in workspace 5 - Outlook PWA has this WM_CLASS(STRING) = "crx_faolnafnngnfdaknnbpnkhgohbobgegn", "Brave-browser"
     {

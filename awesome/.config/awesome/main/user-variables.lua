@@ -16,10 +16,10 @@ local _M = {
   modkey = "Mod4",
 
   -- User defined wallpaper
-  wallpaper = "/home/sahasrajit/.config/awesome/wallpapers/wp3770437-red-dead-redemption-2-4k-wallpapers.png",
+  wallpaper = "/home/Sahas/.config/awesome/wallpapers/current",
 
   -- Font
-  font = "FiraCode Nerd Font 10",
+  font = "Ubuntu Regular 10",
 }
 
 return _M
