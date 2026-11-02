@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+# ---------------------------------------------------------------------------
+# Bash completions for extract and mkarchive
+# ---------------------------------------------------------------------------
+
+_extract_completions() {
+  local cur prev words cword
+  _init_completion || return
+
+  local opts="-o -n -f -F --force -v --verbose -h --help"
+  local formats="zip tar tar.gz tgz tar.bz2 tbz2 tar.xz txz tar.zst gz bz2 xz 7z"
+
+  case "$prev" in
+    -o)
+      # complete directories
+      _filedir -d
+      return ;;
+    -n)
+      # free-form name, no completion
+      return ;;
+    -f)
+      COMPREPLY=( $(compgen -W "$formats" -- "$cur") )
+      return ;;
+  esac
+
+  if [[ "$cur" == -* ]]; then
+    COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
+    return
+  fi
+
+  # complete archive files
+  _filedir '@(zip|tar|tar.gz|tgz|tar.bz2|tbz2|tar.xz|txz|tar.zst|gz|bz2|xz|7z)'
+}
+
+_mkarchive_completions() {
+  local cur prev words cword
+  _init_completion || return
+
+  local opts="-o -F --force -v --verbose -h --help"
+
+  case "$prev" in
+    -o)
+      _filedir -d
+      return ;;
+    mkarchive)
+      # first positional = output archive name; suggest common extensions
+      if [[ "$cur" != -* ]]; then
+        COMPREPLY=( $(compgen -W "archive.tar.gz archive.tar.xz archive.tar.bz2 archive.zip archive.7z" -- "$cur") )
+        return
+      fi
+      ;;
+  esac
+
+  if [[ "$cur" == -* ]]; then
+    COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
+    return
+  fi
+
+  # for inputs (files and dirs)
+  _filedir
+}
+
+complete -F _extract_completions extract
+complete -F _mkarchive_completions mkarchive

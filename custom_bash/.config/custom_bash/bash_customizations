@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+
+
+# To source:
+# source /home/sahas/Applications/Customization/custom_bash/bash_customizations
+
+custom_dir=$(dirname "${BASH_SOURCE[0]}")
+source "$custom_dir/bash_prompt"
+source "$custom_dir/bash_shortcuts"
+source "$custom_dir/bash_aliases"
+source "$custom_dir/bash_funcs"
+source "$custom_dir/archive_funcs_completions"
+[ -f "$custom_dir/torc_aliases" ] && source "$custom_dir/torc_aliases"
+
+shopt -s histappend
+if [ -z $PROMPT_COMMAND ]; then
+  PROMPT_COMMAND="history -a"
+else
+  PROMPT_COMMAND="history -a;$PROMPT_COMMAND"
+fi
+
+# Zoxide
+eval "$(zoxide init bash --cmd cd)"
+
+# FZF keybindings
+eval "$(fzf --bash)"
+# -- Use fd instead of fzf --
+
+export FZF_DEFAULT_COMMAND="fd --hidden --strip-cwd-prefix --exclude .git"
+export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+export FZF_ALT_C_COMMAND="fd --type=d --hidden --strip-cwd-prefix --exclude .git"
+
+# Use fd (https://github.com/sharkdp/fd) for listing path candidates.
+# - The first argument to the function ($1) is the base path to start traversal
+# - See the source code (completion.{bash,zsh}) for the details.
+_fzf_compgen_path() {
+  fd --hidden --exclude .git . "$1"
+}
+
+# Use fd to generate the list for directory completion
+_fzf_compgen_dir() {
+  fd --type=d --hidden --exclude .git . "$1"
+}
+
+# TODO: Maybe look into https://github.com/junegunn/fzf-git.sh
+
+# Bat Customizations
+alias bathelp='bat --plain --language=help'
+if command -v bat 2>&1 >/dev/null
+then
+  batdiff() {
+      git diff --name-only --relative --diff-filter=d | xargs bat --diff
+  }
+  export MANPAGER="sh -c 'ansi2txt | col -b | bat --language man --plain'"
+  help() {
+      "$@" --help 2>&1 | bathelp
+  }
+else
+  echo "bat not found. Please install it: https://github.com/sharkdp/bat"
+fi
+
+# # Show more git bash completions
+# export GIT_COMPLETION_SHOW_ALL_COMMANDS=1
+
+# # AWS Bash completions
+# if command -v aws >/dev/null 2>&1; then
+#   complete -C $(which aws_completer) aws
+# else
+#   echo "Install AWS CLI"
+# fi
+eval "$(uv generate-shell-completion bash)"
+eval "$(uvx --generate-shell-completion bash)"

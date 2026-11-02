@@ -1,6 +1,3 @@
-[submodule "custom_bash/.config/custom_bash"]
-	path = custom_bash/.config/custom_bash
-	url = git@sahas_gh:Sahas-Ananth/custom_bash.git
 [submodule "espanso/.config/espanso"]
 	path = espanso/.config/espanso
 	url = git@sahas_gh:Sahas-Ananth/espanso-customizations.git

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+# Create and chage into a directory
+mkcd ()
+{
+    mkdir -p -- "$1" &&
+       cd -- "$1"
+}
+
+source "$(dirname "${BASH_SOURCE[0]}")/archive_funcs"
+

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+shopt -s cdspell;
+shopt -s nocaseglob;
+bind 'set show-all-if-ambiguous on'
+bind 'set completion-ignore-case on'
+bind 'TAB:menu-complete'
+
+bind '"\e[A":history-search-backward'
+bind '"\e[B":history-search-forward'
+shopt -s autocd
+
+bind '"\e[6~": menu-complete'
+bind '"\e[5~": menu-complete-backward'
+
+# BASH Exports
+export EDITOR=nvim
+export VISUAL=$EDITOR

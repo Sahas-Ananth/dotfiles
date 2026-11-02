@@ -1,0 +1,358 @@
+#!/usr/bin/env bash
+
+# ---------------------------------------------------------------------------
+# Archive utilities — extract & mkarchive
+# ---------------------------------------------------------------------------
+
+_archive_supported_formats() {
+  echo "zip tar tar.gz tgz tar.bz2 tbz2 tar.xz txz tar.zst gz bz2 xz 7z"
+}
+
+_archive_detect_format() {
+  local file="$1"
+  case "${file,,}" in
+    *.tar.gz|*.tgz)   echo "tar.gz" ;;
+    *.tar.bz2|*.tbz2) echo "tar.bz2" ;;
+    *.tar.xz|*.txz)   echo "tar.xz" ;;
+    *.tar.zst)        echo "tar.zst" ;;
+    *.tar)            echo "tar" ;;
+    *.zip)            echo "zip" ;;
+    *.gz)             echo "gz" ;;
+    *.bz2)            echo "bz2" ;;
+    *.xz)             echo "xz" ;;
+    *.7z)             echo "7z" ;;
+    *) echo "" ;;
+  esac
+}
+
+_archive_strip_ext() {
+  local file
+  file=$(basename "$1")
+  case "${file,,}" in
+    *.tar.gz|*.tar.bz2|*.tar.xz|*.tar.zst) echo "${file%.*.*}" ;;
+    *.tgz)  echo "${file%.tgz}" ;;
+    *.tbz2) echo "${file%.tbz2}" ;;
+    *.txz)  echo "${file%.txz}" ;;
+    *)      echo "${file%.*}" ;;
+  esac
+}
+
+# extract — decompress/unarchive files
+# Usage: extract [options] <archive> [archive2 ...]
+#        <stdin> | extract -f <format> [options]
+extract() {
+  local opt_output="" opt_name="" opt_format="" opt_force=0 opt_verbose=0
+  local -a archives=()
+
+  local usage
+  usage=$(cat <<'EOF'
+Usage: extract [OPTIONS] <archive> [archive2 ...]
+       <data> | extract -f <format> [OPTIONS]
+
+Extract archives of any supported type.
+
+Options:
+  -o <dir>       Destination directory (default: current dir)
+  -n <name>      Output folder name (overrides auto-name from filename)
+  -f <format>    Force format (required when reading from stdin)
+  -F, --force    Overwrite existing files without prompting
+  -v, --verbose  List files as they are extracted
+  -h, --help     Show this help
+
+Supported formats: zip tar tar.gz tgz tar.bz2 tbz2 tar.xz txz tar.zst gz bz2 xz 7z
+
+Examples:
+  extract archive.tar.gz
+  extract -o ~/dest -n myproject archive.tar.gz
+  extract -o . archive.zip          # extract contents here, no subfolder
+  extract *.tar.gz                  # extract multiple in parallel
+  curl -sL url/file.tar.gz | extract -f tar.gz -n myproject
+EOF
+)
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -o) opt_output="$2"; shift 2 ;;
+      -n) opt_name="$2"; shift 2 ;;
+      -f) opt_format="$2"; shift 2 ;;
+      -F|--force) opt_force=1; shift ;;
+      -v|--verbose) opt_verbose=1; shift ;;
+      -h|--help) echo "$usage"; return 0 ;;
+      --) shift; archives+=("$@"); break ;;
+      -*) echo "extract: unknown option: $1" >&2; echo "$usage" >&2; return 1 ;;
+      *) archives+=("$1"); shift ;;
+    esac
+  done
+
+  local base_dest="${opt_output:-.}"
+
+  # --- stdin mode ---
+  if [[ ${#archives[@]} -eq 0 ]]; then
+    if [[ -z "$opt_format" ]]; then
+      echo "extract: reading from stdin requires -f <format>" >&2
+      return 1
+    fi
+    local fmt="$opt_format"
+    local dest_name="${opt_name:-stdin_extract}"
+    local dest
+    if [[ "$base_dest" == "." && -z "$opt_output" ]]; then
+      dest="./$dest_name"
+    elif [[ "$base_dest" == "." ]]; then
+      dest="."
+    else
+      dest="$base_dest/$dest_name"
+    fi
+
+    if [[ "$base_dest" != "." || -n "$opt_name" ]]; then
+      mkdir -p "$dest"
+    fi
+
+    local verbose_flag=""
+    [[ $opt_verbose -eq 1 ]] && verbose_flag="-v"
+
+    case "$fmt" in
+      tar.gz|tgz)   tar ${verbose_flag} -xzf - -C "${dest:-.}" ;;
+      tar.bz2|tbz2) tar ${verbose_flag} -xjf - -C "${dest:-.}" ;;
+      tar.xz|txz)   tar ${verbose_flag} -xJf - -C "${dest:-.}" ;;
+      tar.zst)      tar ${verbose_flag} --zstd -xf - -C "${dest:-.}" ;;
+      tar)          tar ${verbose_flag} -xf - -C "${dest:-.}" ;;
+      zip)          local tmp; tmp=$(mktemp /tmp/extract_stdin_XXXXXX.zip)
+                    cat > "$tmp"
+                    local uz_flag=""; [[ $opt_verbose -eq 0 ]] && uz_flag="-q"
+                    [[ $opt_force -eq 1 ]] && uz_flag="$uz_flag -o"
+                    unzip $uz_flag "$tmp" -d "${dest:-.}"
+                    rm -f "$tmp" ;;
+      gz)           gunzip ;;
+      bz2)          bunzip2 ;;
+      xz)           unxz ;;
+      7z)           local tmp; tmp=$(mktemp /tmp/extract_stdin_XXXXXX.7z)
+                    cat > "$tmp"
+                    local sv=""; [[ $opt_verbose -eq 1 ]] || sv="-bso0 -bsp0"
+                    7z x $sv -o"${dest:-.}" "$tmp"
+                    rm -f "$tmp" ;;
+      *) echo "extract: unsupported format: $fmt" >&2
+         echo "Supported: $(_archive_supported_formats)" >&2
+         return 1 ;;
+    esac
+    return $?
+  fi
+
+  # --- file mode ---
+  local -a pids=()
+  local -A pid_label=()
+
+  _extract_one() {
+    local archive="$1" base_dest="$2" opt_name="$3" opt_force="$4" opt_verbose="$5" opt_output="$6"
+    local fmt
+    fmt=$(_archive_detect_format "$archive")
+    if [[ -z "$fmt" ]]; then
+      echo "extract: unsupported format for: $archive" >&2
+      echo "Supported: $(_archive_supported_formats)" >&2
+      return 1
+    fi
+
+    local fname
+    fname=$(_archive_strip_ext "$archive")
+    local dest_name="${opt_name:-$fname}"
+
+    local dest
+    if [[ "$base_dest" == "." && -z "$opt_output" ]]; then
+      dest="./$dest_name"
+    elif [[ "$base_dest" == "." && -n "$opt_output" ]]; then
+      dest="."
+    else
+      dest="$base_dest/$dest_name"
+    fi
+
+    # collision check (only when dest != ".")
+    if [[ "$dest" != "." && -d "$dest" ]]; then
+      if [[ $opt_force -ne 1 ]]; then
+        local would_collide=0
+        case "$fmt" in
+          tar.gz|tgz)   tar -tzf "$archive" 2>/dev/null | while read -r f; do [[ -e "$dest/$f" ]] && echo collision && break; done | grep -q collision && would_collide=1 ;;
+          tar.bz2|tbz2) tar -tjf "$archive" 2>/dev/null | while read -r f; do [[ -e "$dest/$f" ]] && echo collision && break; done | grep -q collision && would_collide=1 ;;
+          tar.xz|txz)   tar -tJf "$archive" 2>/dev/null | while read -r f; do [[ -e "$dest/$f" ]] && echo collision && break; done | grep -q collision && would_collide=1 ;;
+          tar.zst)      tar --zstd -tf "$archive" 2>/dev/null | while read -r f; do [[ -e "$dest/$f" ]] && echo collision && break; done | grep -q collision && would_collide=1 ;;
+          tar)          tar -tf "$archive" 2>/dev/null | while read -r f; do [[ -e "$dest/$f" ]] && echo collision && break; done | grep -q collision && would_collide=1 ;;
+          zip)          unzip -l "$archive" 2>/dev/null | awk 'NR>3 && NF==4{print $4}' | while read -r f; do [[ -e "$dest/$f" ]] && echo collision && break; done | grep -q collision && would_collide=1 ;;
+        esac
+        if [[ $would_collide -eq 1 ]]; then
+          echo "extract: '$dest' exists and has colliding files. Use -F to overwrite." >&2
+          return 1
+        fi
+      fi
+    fi
+
+    mkdir -p "$dest"
+
+    local vflag=""
+    [[ $opt_verbose -eq 1 ]] && vflag="-v"
+    local force_flag=""
+    [[ $opt_force -eq 1 ]] && force_flag="1"
+
+    case "$fmt" in
+      tar.gz|tgz)   tar ${vflag} -xzf "$archive" -C "$dest" ;;
+      tar.bz2|tbz2) tar ${vflag} -xjf "$archive" -C "$dest" ;;
+      tar.xz|txz)   tar ${vflag} -xJf "$archive" -C "$dest" ;;
+      tar.zst)      tar ${vflag} --zstd -xf "$archive" -C "$dest" ;;
+      tar)          tar ${vflag} -xf "$archive" -C "$dest" ;;
+      zip)          local qflag=""; [[ $opt_verbose -eq 0 ]] && qflag="-q"
+                    local oflag=""; [[ -n "$force_flag" ]] && oflag="-o"
+                    unzip $qflag $oflag "$archive" -d "$dest" ;;
+      gz)           gunzip ${vflag} -c "$archive" > "$dest/$(basename "${archive%.gz}")" ;;
+      bz2)          bunzip2 ${vflag} -c "$archive" > "$dest/$(basename "${archive%.bz2}")" ;;
+      xz)           xz ${vflag} -d -c "$archive" > "$dest/$(basename "${archive%.xz}")" ;;
+      7z)           local sv=""; [[ $opt_verbose -eq 0 ]] && sv="-bso0 -bsp0"
+                    local sf=""; [[ -n "$force_flag" ]] && sf="-aoa"
+                    7z x $sv $sf -o"$dest" "$archive" ;;
+      *) echo "extract: unsupported format: $fmt" >&2; return 1 ;;
+    esac
+  }
+
+  if [[ ${#archives[@]} -eq 1 ]]; then
+    _extract_one "${archives[0]}" "$base_dest" "$opt_name" "$opt_force" "$opt_verbose" "$opt_output"
+    return $?
+  fi
+
+  set +m
+  for archive in "${archives[@]}"; do
+    { _extract_one "$archive" "$base_dest" "$opt_name" "$opt_force" "$opt_verbose" "$opt_output"; } &
+    pids+=($!)
+    pid_label[$!]="$archive"
+  done
+
+  local failed=0
+  for pid in "${pids[@]}"; do
+    wait "$pid"
+    local ec=$?
+    if [[ $ec -ne 0 ]]; then
+      echo "extract: FAILED — ${pid_label[$pid]}" >&2
+      failed=$((failed + 1))
+    fi
+  done
+  set -m 2>/dev/null || true
+
+  [[ $failed -gt 0 ]] && echo "extract: $failed file(s) failed." >&2 && return 1
+  return 0
+}
+
+# mkarchive — create archives
+# Usage: mkarchive [options] <output.ext> <input> [input2 ...]
+mkarchive() {
+  local opt_output="" opt_force=0 opt_verbose=0
+  local archive_name=""
+  local -a inputs=()
+
+  local usage
+  usage=$(cat <<'EOF'
+Usage: mkarchive [OPTIONS] <archive.ext> <input> [input2 ...]
+
+Create an archive. Format is inferred from <archive.ext>.
+
+Options:
+  -o <dir>       Destination directory for the archive (default: current dir)
+  -F, --force    Overwrite existing archive without prompting
+  -v, --verbose  List files as they are added
+  -h, --help     Show this help
+
+Supported formats: zip tar tar.gz tgz tar.bz2 tbz2 tar.xz txz tar.zst gz bz2 xz 7z
+
+Examples:
+  mkarchive project.tar.gz src/ README.md
+  mkarchive -o ~/backups backup.zip documents/
+  mkarchive archive.tar.xz *.log
+  mkarchive out.tar.gz dir/ | upload_cmd     # stream to stdout when piped
+EOF
+)
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -o) opt_output="$2"; shift 2 ;;
+      -F|--force) opt_force=1; shift ;;
+      -v|--verbose) opt_verbose=1; shift ;;
+      -h|--help) echo "$usage"; return 0 ;;
+      --) shift; inputs+=("$@"); break ;;
+      -*) echo "mkarchive: unknown option: $1" >&2; echo "$usage" >&2; return 1 ;;
+      *)
+        if [[ -z "$archive_name" ]]; then
+          archive_name="$1"
+        else
+          inputs+=("$1")
+        fi
+        shift
+        ;;
+    esac
+  done
+
+  if [[ -z "$archive_name" ]]; then
+    echo "mkarchive: no output archive name given" >&2
+    echo "$usage" >&2
+    return 1
+  fi
+
+  if [[ ${#inputs[@]} -eq 0 ]]; then
+    echo "mkarchive: no input files/directories given" >&2
+    return 1
+  fi
+
+  local fmt
+  fmt=$(_archive_detect_format "$archive_name")
+  if [[ -z "$fmt" ]]; then
+    echo "mkarchive: cannot determine format from: $archive_name" >&2
+    echo "Supported extensions: zip tar tar.gz tgz tar.bz2 tbz2 tar.xz txz tar.zst gz bz2 xz 7z" >&2
+    return 1
+  fi
+
+  local pipe_out=0
+  local archive_path
+  if [[ "$archive_name" == "-" || ! -t 1 ]]; then
+    pipe_out=1
+    archive_path=""
+  else
+    if [[ -n "$opt_output" ]]; then
+      mkdir -p "$opt_output"
+      archive_path="$opt_output/$(basename "$archive_name")"
+    else
+      archive_path="./$archive_name"
+    fi
+    if [[ -e "$archive_path" && $opt_force -eq 0 ]]; then
+      echo "mkarchive: '$archive_path' already exists. Use -F to overwrite." >&2
+      return 1
+    fi
+  fi
+
+  local vflag=""
+  [[ $opt_verbose -eq 1 ]] && vflag="-v"
+
+  if [[ $pipe_out -eq 1 ]]; then
+    case "$fmt" in
+      tar.gz|tgz)   tar ${vflag} -czf - "${inputs[@]}" ;;
+      tar.bz2|tbz2) tar ${vflag} -cjf - "${inputs[@]}" ;;
+      tar.xz|txz)   tar ${vflag} -cJf - "${inputs[@]}" ;;
+      tar.zst)      tar ${vflag} --zstd -cf - "${inputs[@]}" ;;
+      tar)          tar ${vflag} -cf - "${inputs[@]}" ;;
+      gz)           gzip -c "${inputs[@]}" ;;
+      bz2)          bzip2 -c "${inputs[@]}" ;;
+      xz)           xz -c "${inputs[@]}" ;;
+      zip)          zip -r ${vflag:+"-v"} - "${inputs[@]}" ;;
+      7z)           local sv=""; [[ $opt_verbose -eq 0 ]] && sv="-bso0 -bsp0"
+                    7z a $sv -so "$archive_name" "${inputs[@]}" ;;
+      *) echo "mkarchive: unsupported format: $fmt" >&2; return 1 ;;
+    esac
+  else
+    case "$fmt" in
+      tar.gz|tgz)   tar ${vflag} -czf "$archive_path" "${inputs[@]}" ;;
+      tar.bz2|tbz2) tar ${vflag} -cjf "$archive_path" "${inputs[@]}" ;;
+      tar.xz|txz)   tar ${vflag} -cJf "$archive_path" "${inputs[@]}" ;;
+      tar.zst)      tar ${vflag} --zstd -cf "$archive_path" "${inputs[@]}" ;;
+      tar)          tar ${vflag} -cf "$archive_path" "${inputs[@]}" ;;
+      gz)           gzip ${vflag} -c "${inputs[@]}" > "$archive_path" ;;
+      bz2)          bzip2 ${vflag} -c "${inputs[@]}" > "$archive_path" ;;
+      xz)           xz ${vflag} -c "${inputs[@]}" > "$archive_path" ;;
+      zip)          zip -r ${vflag:+"-v"} "$archive_path" "${inputs[@]}" ;;
+      7z)           local sv=""; [[ $opt_verbose -eq 0 ]] && sv="-bso0 -bsp0"
+                    7z a $sv "$archive_path" "${inputs[@]}" ;;
+      *) echo "mkarchive: unsupported format: $fmt" >&2; return 1 ;;
+    esac
+  fi
+}
