@@ -1,0 +1,68 @@
+[user]
+  email = sahasrajit.ananthar@torc.ai
+  name = Sahasrajit Anantharamakrishnan
+
+[init]
+  defaultBranch = main
+
+[core]
+  pager = delta
+
+[interactive]
+  diffFilter = delta --color-only
+
+[delta]
+  navigate = true  # use n and N to move between diff sections
+  dark = true      # or light = true, or omit for auto-detection
+
+[merge]
+  conflictstyle = diff3
+  tool = nvimdiff
+
+[pull]
+  rebase = true
+
+[rebase]
+  autosquash = true
+  updateRefs = true
+
+[fetch]
+  prune = true
+
+[rerere]
+  enabled = true
+
+[alias]
+  default-branch = "!git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'"
+  merge-base-origin ="!f() { git merge-base ${1-HEAD} origin/$(git default-branch); };f "
+  stack = "!f() { \
+      BRANCH=${1-HEAD}; \
+      MERGE_BASE=$(git merge-base-origin $BRANCH); \
+      git log --decorate-refs=refs/heads --simplify-by-decoration --pretty=tformat:\"%(decorate:prefix=,suffix=,tag=,separator=%n)\" $MERGE_BASE..$BRANCH; \
+  };f "
+  push-stack = "!f() { \
+      BRANCH=${1-HEAD}; \
+      git stack $BRANCH | tac | xargs -I {} git push --force-with-lease origin {}; \
+  };f "
+  rebase-stack = "!f() { \
+      BOTTOM=${2:-$(git stack \"$BRANCH\" | tail -1)}; \
+      BASE=${3:-$(git default-branch)}; \
+      [ -n \"$BOTTOM\" ] || { echo \"No stack branches found for $BRANCH\"; exit 1; }; \
+      git rebase $BOTTOM --onto $BASE; \
+   }; f"
+
+  prune-branches-untracked = "!git branch -vv | awk '/: gone]/{print $1}' | xargs git branch -D"
+
+[filter "lfs"]
+  required = true
+  clean = git-lfs clean -- %f
+  smudge = git-lfs smudge -- %f
+  process = git-lfs filter-process
+
+[credential "https://github.com"]
+  helper =
+  helper = !/usr/bin/gh auth git-credential
+
+[credential "https://gist.github.com"]
+  helper =
+  helper = !/usr/bin/gh auth git-credential
