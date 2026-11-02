@@ -1,0 +1,9 @@
+[Unit]
+Description=autorandr user execution hook
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/autorandr --change --default default
+
+[Install]
+WantedBy=default.target
