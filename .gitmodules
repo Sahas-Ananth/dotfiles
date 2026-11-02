@@ -4,9 +4,6 @@
 [submodule "kitty/.config/kitty"]
 	path = kitty/.config/kitty
 	url = git@sahas_gh:Sahas-Ananth/kitty_config.git
-[submodule "nvim/.config/nvim"]
-	path = nvim_bkp/.config/nvim
-	url = git@sahas_gh:Sahas-Ananth/nvim_config.git
 [submodule "espanso/.config/espanso"]
 	path = espanso/.config/espanso
 	url = git@sahas_gh:Sahas-Ananth/espanso-customizations.git
