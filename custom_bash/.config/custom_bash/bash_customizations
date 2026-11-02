@@ -12,6 +12,9 @@ source "$custom_dir/bash_funcs"
 source "$custom_dir/archive_funcs_completions"
 [ -f "$custom_dir/torc_aliases" ] && source "$custom_dir/torc_aliases"
 
+# Increase History size to infinity
+export HISTSIZE=-1
+export HISTFILESIZE=-1
 shopt -s histappend
 if [ -z $PROMPT_COMMAND ]; then
   PROMPT_COMMAND="history -a"
