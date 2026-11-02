@@ -1,0 +1,11 @@
+gui:
+  nerdFontsVersion: "3"
+  statusPanelView: allBranchesLog
+git:
+  branchPrefix: "sahas/"
+  log:
+    showGraph: always
+    showWholeGraph: false
+os:
+  editPreset: 'nvim-remote'
+  shellFunctionsFile: ~/.bashrc
